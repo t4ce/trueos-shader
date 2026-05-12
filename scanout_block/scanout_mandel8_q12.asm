@@ -1,5 +1,5 @@
 // Gfx12/TGL SIMD8x2 fixed-point Mandelbrot strips for TRUEOS primary scanout.
-// Runtime patches x_step_q12, c_re_base_q12, c_im_q12, and absolute scanout GPU addresses.
+// Runtime patches x_step_q12, c_re_base_q12, c_im_q12, and scanout-relative byte offsets.
 // CPU supplies setup scalars only; EU computes escape counts and colors for 16 pixels.
 mov(8)          g1<1>UW         0x76543210V                     { align1 WE_all 1Q };
 mov(8)          g1<1>D          g1<8,8,1>UW                     { align1 WE_all 1Q @2 };
@@ -139,8 +139,9 @@ cmp.ge.f0.0(8)  null<1>D        g8<8,8,1>D      8D              { align1 1Q @1 }
 (f0.0) mov(8)   g4<1>D          0D                              { align1 1Q @1 };
 shl(8)          g127<1>D        g1<8,8,1>D      2UD              { align1 1Q };
 add(8)          g127<1>D        g127<8,8,1>D    0D               { align1 1Q @1 };
-send(8)         nullUD          g127UD          g4UD            0x02026efd                0x00000040
-                            hdc1 MsgDesc: (DC untyped surface write, Surface = 253, SIMD8, Mask = 0xe) mlen 1 ex_mlen 1 rlen 0 { align1 1Q @1 };
+sync nop(1)                     null<0,1,0>UB                   { align1 WE_all 1N @1 };
+send(8)         nullUD          g127UD          g4UD            0x02026e01                0x00000040
+                            hdc1 MsgDesc: (DC untyped surface write, Surface = 1, SIMD8, Mask = 0xe) mlen 1 ex_mlen 1 rlen 0 { align1 1Q @1 };
 // strip 1: same static window, next eight x positions
 add(8)          g1<1>D          g1<8,8,1>D      8D              { align1 1Q @1 };
 mul(8)          g2<1>D          g1<8,8,1>D      5D              { align1 1Q @1 };
@@ -278,8 +279,9 @@ cmp.ge.f0.0(8)  null<1>D        g8<8,8,1>D      8D              { align1 1Q @1 }
 (f0.0) mov(8)   g4<1>D          0D                              { align1 1Q @1 };
 shl(8)          g127<1>D        g1<8,8,1>D      2UD              { align1 1Q };
 add(8)          g127<1>D        g127<8,8,1>D    0D               { align1 1Q @1 };
-send(8)         nullUD          g127UD          g4UD            0x02026efd                0x00000040
-                            hdc1 MsgDesc: (DC untyped surface write, Surface = 253, SIMD8, Mask = 0xe) mlen 1 ex_mlen 1 rlen 0 { align1 1Q @1 };
+sync nop(1)                     null<0,1,0>UB                   { align1 WE_all 1N @1 };
+send(8)         nullUD          g127UD          g4UD            0x02026e01                0x00000040
+                            hdc1 MsgDesc: (DC untyped surface write, Surface = 1, SIMD8, Mask = 0xe) mlen 1 ex_mlen 1 rlen 0 { align1 1Q @1 };
 mov(8)          g127<1>UD       g0<8,8,1>UD                     { align1 WE_all 1Q };
 send(8)         nullUD          g127UD          nullUD          0x02000000                0x00000000
                             ts/btd MsgDesc:  mlen 1 ex_mlen 0 rlen 0 { align1 WE_all 1Q @1 EOT };
