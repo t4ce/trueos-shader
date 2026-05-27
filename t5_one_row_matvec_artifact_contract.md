@@ -8,6 +8,17 @@ Current small-step program name:
 
 `gfx12-t5-small-live4-packed-bf16-dot-hdc1-stateless-store-then-ts-eot`
 
+HDC/EOT tail invariant, proven on TRUEOS baremetal on 2026-05-25:
+
+- keep the HDC store source/header message in `g127`
+- do not overwrite `g127` immediately after the HDC send
+- copy the TS EOT payload into `g126`
+- use TS EOT descriptor `0x70007E0C`
+
+The older tail that reused `g127` for EOT after the HDC store allowed the store
+to land but failed walker/thread retirement.  Store-then-EOT artifacts should
+therefore use a separate EOT payload register.
+
 Preserved generated artifacts:
 
 - `.codex_tmp/t5_small_live4.comp`

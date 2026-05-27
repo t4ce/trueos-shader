@@ -7,6 +7,16 @@ Artifact:
 - Oracle log: `.codex_tmp/intel_userland_oracle/t6-3-accum16-hi-live32-trueos-arena-bf16-unpack/log.txt`
 - Native dump: `.codex_tmp/intel_userland_oracle/t6-3-accum16-hi-live32-trueos-arena-bf16-unpack/dumps/000614_pre_exec_handle_3_off_0x0_len_0x200000.bin`
 
+HDC/EOT tail invariant:
+
+- HDC store message source/header remains in `g127`.
+- TS EOT uses a separate `g126` payload.
+- The final EOT descriptor is `0x70007E0C`.
+
+This follows the 2026-05-25 baremetal proof where the old `g127`-reuse tail
+wrote the expected HDC value but failed to retire, while the `g126` EOT tail
+retired cleanly.
+
 Contract:
 
 - One SIMD8 workgroup.
