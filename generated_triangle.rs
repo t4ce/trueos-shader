@@ -9,6 +9,7 @@ use super::{
 pub(crate) const TRIANGLE_PIPELINE_NOTE: &str = "mesa-intel-vulkan simple-triangle dump target=gfx125 provisional=1 vs_sha=d648c75e7e36bc926b927c3700bd514f81d286db ps_sha=81edb0a9ed24ccfdfb1a2c3202f1008b202868df verified=0";
 pub(crate) const TRIANGLE_PIPELINE_SIMD16_NOTE: &str = "mesa-intel-vulkan simple-triangle dump target=gfx125 provisional=1 ps_variant=simd16 vs_sha=d648c75e7e36bc926b927c3700bd514f81d286db ps_sha=eb4817ff5338fb86574e325ff857d41228bc244a verified=0";
 pub(crate) const TRIANGLE_PIPELINE_PS_EOT_NOTE: &str = "trueos ps launch probe target=gfx125 ps_variant=simd8-ts-eot-only source=crates/trueos-shader/gfx12_eot_g126_tgl.hex verified=0";
+pub(crate) const TRIANGLE_PIPELINE_PUSH_COLOR_NOTE: &str = "mesa-intel-vulkan push-color target=gfx125 ps_variant=simd8 push_bytes=16 source=crates/trueos-shader/xe_lp_shader_bake/push_color.frag host_verified=1";
 
 static TRIANGLE_VS_CODE: [u32; 36] = [
     0x00030061, 0x77054220, 0x00000000, 0x00000000, 0x00030061, 0x78054220, 0x00000000, 0x00000000,
@@ -30,6 +31,19 @@ static TRIANGLE_PS_SIMD16_CODE: [u32; 12] = [
 
 static TRIANGLE_PS_EOT_CODE: [u32; 8] = [
     0x80030061, 0x7E050220, 0x00460005, 0x00000000, 0x80030131, 0x00000004, 0x70007E0C, 0x00000000,
+];
+
+// Static pixel shader. g2 contains the first 16 bytes of Vulkan/graphics push
+// data as four full-precision floats. Unlike TRIANGLE_PS_CODE, this code is
+// never rewritten to bind a draw color.
+static TRIANGLE_PS_PUSH_COLOR_CODE: [u32; 12] = [
+    0x617C_0061, 0x0011_0200, 0x617D_0061, 0x0011_0220, 0x617E_0061, 0x0011_0240,
+    0x617F_0061, 0x0011_0278, 0x0003_0132, 0x0000_0004, 0x5800_7C24, 0x00C4_0000,
+];
+
+static TRIANGLE_PS_PUSH_COLOR_SIMD16_CODE: [u32; 12] = [
+    0x6078_0061, 0x0011_0200, 0x607A_0061, 0x0011_0220, 0x607C_0061, 0x0011_0240,
+    0x607E_0061, 0x0011_0278, 0x0004_0132, 0x0000_0004, 0x5000_7844, 0x00C4_0000,
 ];
 
 static TRIANGLE_PIPELINE: TrianglePipeline = TrianglePipeline {
@@ -131,6 +145,60 @@ static TRIANGLE_PIPELINE_PS_EOT: TrianglePipeline = TrianglePipeline {
     },
 };
 
+static TRIANGLE_PIPELINE_PUSH_COLOR: TrianglePipeline = TrianglePipeline {
+    vs: TRIANGLE_PIPELINE.vs,
+    ps: TrianglePixelShader {
+        code: &TRIANGLE_PS_PUSH_COLOR_CODE,
+        meta: TrianglePixelShaderMetadata {
+            kernel: ShaderKernelMetadata {
+                code_offset_bytes: 256,
+                code_size_bytes: 48,
+                code_alignment_bytes: 64,
+                ksp_offset_bytes: 0,
+                dispatch_mode: DispatchMode::Simd8,
+                grf_start_register: 2,
+                grf_used: 128,
+                push_constant_bytes: 16,
+                binding_table_entry_count: 1,
+                sampler_count: 0,
+            },
+            num_varying_inputs: 0,
+            uses_vmask: false,
+            computed_stencil: false,
+            persample_dispatch: false,
+            computed_depth_mode: 0,
+            flat_inputs: 0,
+        },
+    },
+};
+
+static TRIANGLE_PIPELINE_PUSH_COLOR_SIMD16: TrianglePipeline = TrianglePipeline {
+    vs: TRIANGLE_PIPELINE.vs,
+    ps: TrianglePixelShader {
+        code: &TRIANGLE_PS_PUSH_COLOR_SIMD16_CODE,
+        meta: TrianglePixelShaderMetadata {
+            kernel: ShaderKernelMetadata {
+                code_offset_bytes: 192,
+                code_size_bytes: 48,
+                code_alignment_bytes: 64,
+                ksp_offset_bytes: 0,
+                dispatch_mode: DispatchMode::Simd16,
+                grf_start_register: 2,
+                grf_used: 128,
+                push_constant_bytes: 16,
+                binding_table_entry_count: 1,
+                sampler_count: 0,
+            },
+            num_varying_inputs: 0,
+            uses_vmask: false,
+            computed_stencil: false,
+            persample_dispatch: false,
+            computed_depth_mode: 0,
+            flat_inputs: 0,
+        },
+    },
+};
+
 pub(crate) fn triangle_pipeline() -> &'static TrianglePipeline {
     &TRIANGLE_PIPELINE
 }
@@ -141,4 +209,12 @@ pub(crate) fn triangle_pipeline_simd16() -> &'static TrianglePipeline {
 
 pub(crate) fn triangle_pipeline_ps_eot() -> &'static TrianglePipeline {
     &TRIANGLE_PIPELINE_PS_EOT
+}
+
+pub(crate) fn triangle_pipeline_push_color() -> &'static TrianglePipeline {
+    &TRIANGLE_PIPELINE_PUSH_COLOR
+}
+
+pub(crate) fn triangle_pipeline_push_color_simd16() -> &'static TrianglePipeline {
+    &TRIANGLE_PIPELINE_PUSH_COLOR_SIMD16
 }

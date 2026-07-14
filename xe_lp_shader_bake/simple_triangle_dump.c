@@ -67,7 +67,9 @@ static uint32_t find_memory_type(
     exit(1);
 }
 
-static int is_expected_triangle_color(uint32_t pixel) { return pixel == 0xFFFF4000; }
+static int is_expected_triangle_color(uint32_t pixel, int push_color_enabled) {
+    return pixel == (push_color_enabled ? 0xC0DC30E0 : 0xFFFF4000);
+}
 
 static void dump_pixel(const char *label, uint32_t pixel) {
     const uint8_t b0 = (uint8_t)(pixel & 0xFF);
@@ -378,7 +380,7 @@ static void dump_pipeline_executables(VkDevice device, VkPipeline pipeline) {
     free(props);
 }
 
-static void dump_host_state_reference(uint32_t max_threads_per_psd) {
+static void dump_host_state_reference(uint32_t max_threads_per_psd, int push_color_enabled) {
     const char *out_dir = getenv("TRUEOS_EXECUTABLE_DUMP_DIR");
     FILE *file = NULL;
     char path[1024];
@@ -416,7 +418,8 @@ static void dump_host_state_reference(uint32_t max_threads_per_psd) {
         "host-state sbe read_offset=1 read_length=1 num_sf_attrs=0 force_read_offset=1 force_read_length=1 flat_inputs=0 active_components=xyzw\n"
     );
     HOST_STATE_LINE(
-        "host-state ps vector_mask=0 binding_table_entry_count=0 push_constants=0 dispatch=simd8 max_threads_per_psd=%u\n",
+        "host-state ps vector_mask=0 binding_table_entry_count=0 push_constants=%u dispatch=simd8 max_threads_per_psd=%u\n",
+        push_color_enabled ? 16u : 0u,
         max_threads_per_psd
     );
     HOST_STATE_LINE(
@@ -440,6 +443,14 @@ int main(int argc, char **argv) {
         fprintf(stderr, "usage: %s simple_triangle.vert.spv simple_triangle.frag.spv\n", argv[0]);
         return 1;
     }
+
+    const int push_color_enabled = getenv("TRUEOS_PUSH_COLOR") != NULL;
+    const float push_color[4] = {
+        224.0f / 255.0f,
+        48.0f / 255.0f,
+        220.0f / 255.0f,
+        192.0f / 255.0f,
+    };
 
     const VkApplicationInfo app_info = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -554,7 +565,7 @@ int main(int argc, char **argv) {
 
     VkDevice device;
     CHECK_VK(vkCreateDevice(physical_device, &device_info, NULL, &device));
-    dump_host_state_reference(63);
+    dump_host_state_reference(63, push_color_enabled);
 
     VkQueue queue;
     vkGetDeviceQueue(device, graphics_family, 0, &queue);
@@ -758,8 +769,15 @@ int main(int argc, char **argv) {
         .attachmentCount = 1,
         .pAttachments = &blend_attachment,
     };
+    const VkPushConstantRange push_constant_range = {
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = 0,
+        .size = sizeof(push_color),
+    };
     const VkPipelineLayoutCreateInfo pipeline_layout_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pushConstantRangeCount = push_color_enabled ? 1u : 0u,
+        .pPushConstantRanges = push_color_enabled ? &push_constant_range : NULL,
     };
     VkPipelineLayout pipeline_layout;
     CHECK_VK(vkCreatePipelineLayout(device, &pipeline_layout_info, NULL, &pipeline_layout));
@@ -890,6 +908,16 @@ int main(int argc, char **argv) {
     };
     vkCmdBeginRenderPass(command_buffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    if (push_color_enabled) {
+        vkCmdPushConstants(
+            command_buffer,
+            pipeline_layout,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(push_color),
+            push_color
+        );
+    }
     VkDeviceSize vertex_offset = 0;
     vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer, &vertex_offset);
     vkCmdDraw(command_buffer, 3, 1, 0, 0);
@@ -969,10 +997,13 @@ int main(int argc, char **argv) {
     dump_pixel("left", left);
     dump_pixel("right", right);
     dump_pixel("corner", corner);
-    printf("simple_triangle_dump: verified=%d\n", is_expected_triangle_color(center));
+    printf(
+        "simple_triangle_dump: verified=%d\n",
+        is_expected_triangle_color(center, push_color_enabled)
+    );
     vkUnmapMemory(device, readback_memory);
 
-    if (!is_expected_triangle_color(center)) {
+    if (!is_expected_triangle_color(center, push_color_enabled)) {
         fprintf(
             stderr,
             "simple_triangle_dump: verification failed, expected center pixel to match the trivial triangle color\n"
