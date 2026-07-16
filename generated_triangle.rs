@@ -37,13 +37,33 @@ static TRIANGLE_PS_EOT_CODE: [u32; 8] = [
 // data as four full-precision floats. Unlike TRIANGLE_PS_CODE, this code is
 // never rewritten to bind a draw color.
 static TRIANGLE_PS_PUSH_COLOR_CODE: [u32; 12] = [
-    0x617C_0061, 0x0011_0200, 0x617D_0061, 0x0011_0220, 0x617E_0061, 0x0011_0240,
-    0x617F_0061, 0x0011_0278, 0x0003_0132, 0x0000_0004, 0x5800_7C24, 0x00C4_0000,
+    0x617C_0061,
+    0x0011_0200,
+    0x617D_0061,
+    0x0011_0220,
+    0x617E_0061,
+    0x0011_0240,
+    0x617F_0061,
+    0x0011_0278,
+    0x0003_0132,
+    0x0000_0004,
+    0x5800_7C24,
+    0x00C4_0000,
 ];
 
 static TRIANGLE_PS_PUSH_COLOR_SIMD16_CODE: [u32; 12] = [
-    0x6078_0061, 0x0011_0200, 0x607A_0061, 0x0011_0220, 0x607C_0061, 0x0011_0240,
-    0x607E_0061, 0x0011_0278, 0x0004_0132, 0x0000_0004, 0x5000_7844, 0x00C4_0000,
+    0x6078_0061,
+    0x0011_0200,
+    0x607A_0061,
+    0x0011_0220,
+    0x607C_0061,
+    0x0011_0240,
+    0x607E_0061,
+    0x0011_0278,
+    0x0004_0132,
+    0x0000_0004,
+    0x5000_7844,
+    0x00C4_0000,
 ];
 
 static TRIANGLE_PIPELINE: TrianglePipeline = TrianglePipeline {
