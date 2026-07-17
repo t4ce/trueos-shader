@@ -30,9 +30,9 @@ The next embedded API seed artifacts are compiled for focused UI/GPGPU bring-up:
 - `sprite64_worklist_rgba8.cl`: fixed 64x64 sprite descriptors copied/blended from atlas to destination; shell path batches descriptor slices as multiple walkers in one command buffer
 - `sprite_quad_worklist_rgba8.cl`: arbitrary sprite-quad descriptors sampled from RGBA8 source surfaces and source-over blended into RGBA8 destinations
 - `mandel64_worklist_rgba8.cl`: clipped 64x4 Mandelbrot row-band descriptors; each descriptor can either mirror across the real axis or compute an unmirrored viewport
-- `chart_sine_rgba8.cl`: full-frame analytical 2D scope plot with grid, axes, border, anti-aliased sine line, and optional glow; used by the three-stage `gpgpu chart` hardware probe
-- `pixel_plasma_rgba8.cl`: full-frame procedural scalar-field pixel kernel with a FluidX3D-inspired scientific palette, vignette, radial interference, and scanlines; used by `gpgpu pixel artifact|static|plasma`
-- `font_outline_mesh.cl`: allowlisted Skrifa outline consumer used by `gpgpu font-tessel`; it audits the packed command stream, flattens quadratic/cubic curves, and emits indexed contour-stroke triangles without CPU geometry math
+- `chart_sine_rgba8.cl`: full-frame analytical 2D scope plot with grid, axes, border, anti-aliased sine line, and optional glow; retained as an arbitrary-surface kernel for the UI4 preview/pipeline catalog
+- `pixel_plasma_rgba8.cl`: full-frame procedural scalar-field pixel kernel with a FluidX3D-inspired scientific palette, vignette, radial interference, and scanlines; retained as an arbitrary-surface kernel for the UI4 preview/pipeline catalog
+- `font_outline_mesh.cl`: allowlisted Skrifa outline consumer used by `gpgpu probe font-tessel`; it audits the packed command stream, flattens quadratic/cubic curves, and emits indexed contour-stroke triangles without CPU geometry math
 - `canvas3d_project_rgba8.cl`: Q16 vec3 projection into packed XY/RGBA point records with source/output ranges and dynamic canvas dimensions
 - `canvas3d_transform_q16.cl`: range/subset Q16 vec3 fused scale, quaternion rotation, and translation from source int4 vertices to destination int4 vertices
 - `canvas3d_clip_box_q16.cl`: idempotent Q16 vec3 source-to-sink box clip for presentation-safe geometry before projection
@@ -148,8 +148,8 @@ matches this embedded value:
 build. Its analytical field is intentionally buffer-free for bring-up; a later
 FluidX3D field consumer can replace that scalar source while retaining the
 palette, scanout, contract, and cadence path. It writes native premultiplied
-ARGB8888 into a caller-owned composition surface, which the
-display overlay plane consumes without a CPU format conversion. Runtime
+ARGB8888 into a caller-owned composition surface. A UI4 frame producer can
+publish that surface without a CPU format conversion or direct display-plane ownership. Runtime
 overrides must match:
 
 ```text
