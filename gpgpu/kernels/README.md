@@ -64,7 +64,7 @@ The rect worklist evo kernels share a descriptor-driven shape with the
 - `fill_rect_worklist_rgba8.cl` descriptors are `{ dst_xy, size, color_rgba }`
 - `gradient_rect_worklist_rgba8.cl` descriptors are `{ dst_xy, size, color0_rgba, color1_rgba, flags }`, with `flags bit0` selecting vertical instead of horizontal
 - `alpha_blend_worklist_rgba8.cl` descriptors are `{ src_xy, dst_xy, size, flags, color_rgba }`, with flags for direct copy, source-over, RGB tint, alpha tint, and premultiplied source
-- `sprite_quad_worklist_rgba8.cl` descriptors are four `x/y/u/v` float corners plus `{ color_rgba, flags }`; the current flag bit selects source-over
+- `sprite_quad_worklist_rgba8.cl` descriptors are four `x/y/u/v` float corners plus `{ color_rgba, flags }`; flags select source-over and premultiplied source RGB
 - packed coordinates use 16-bit lanes; destination coordinates are signed
 
 These are intended to replace the old single-rect stage-1 fill/alpha path for
@@ -125,7 +125,7 @@ build. Its SHA-256 is:
 quad worklist build. Its SHA-256 is:
 
 ```text
-9382139a63a33c0e4618171158759513418696f912e56610c0dfa5099bdcbdd7
+de7bae1e85c04fee36a9e5a137fe3f75c24ddb70778d9831d00d4a3c1975c4a2
 ```
 
 `artifacts/adls/mandel64_worklist_rgba8.bin` is the descriptor Mandelbrot

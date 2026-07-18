@@ -13,6 +13,7 @@
 
 #define SPRITE_QUAD_DESC_DWORDS 18u
 #define SPRITE_QUAD_FLAG_SRC_OVER (1u << 0)
+#define SPRITE_QUAD_FLAG_PREMUL_SRC (1u << 1)
 
 static inline uint div255(uint value)
 {
@@ -46,7 +47,7 @@ static inline uint blend_channel(uint src, uint src_alpha, uint dst, uint inv_al
     return div255(src * src_alpha + dst * inv_alpha);
 }
 
-static inline uint src_over(uint src, uint dst)
+static inline uint src_over(uint src, uint dst, uint premultiplied)
 {
     uint sa = (src >> 24) & 0xFFu;
     if (sa == 0u) {
@@ -65,9 +66,18 @@ static inline uint src_over(uint src, uint dst)
     uint db = (dst >> 16) & 0xFFu;
     uint da = (dst >> 24) & 0xFFu;
 
-    uint out_r = blend_channel(sr, sa, dr, inv);
-    uint out_g = blend_channel(sg, sa, dg, inv);
-    uint out_b = blend_channel(sb, sa, db, inv);
+    uint out_r;
+    uint out_g;
+    uint out_b;
+    if (premultiplied != 0u) {
+        out_r = min(sr + div255(dr * inv), 255u);
+        out_g = min(sg + div255(dg * inv), 255u);
+        out_b = min(sb + div255(db * inv), 255u);
+    } else {
+        out_r = blend_channel(sr, sa, dr, inv);
+        out_g = blend_channel(sg, sa, dg, inv);
+        out_b = blend_channel(sb, sa, db, inv);
+    }
     uint out_a = sa + div255(da * inv);
 
     return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
@@ -181,7 +191,10 @@ __kernel void sprite_quad_worklist_rgba8(
                 color_rgba);
             uint dst_index = (uint)y * dst_pitch_pixels + (uint)x;
             if ((flags & SPRITE_QUAD_FLAG_SRC_OVER) != 0u) {
-                dst_rgba[dst_index] = src_over(src, dst_rgba[dst_index]);
+                dst_rgba[dst_index] = src_over(
+                    src,
+                    dst_rgba[dst_index],
+                    flags & SPRITE_QUAD_FLAG_PREMUL_SRC);
             } else {
                 dst_rgba[dst_index] = src;
             }
