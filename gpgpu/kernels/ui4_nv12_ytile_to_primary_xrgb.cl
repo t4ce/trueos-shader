@@ -1,18 +1,27 @@
 // TRUEOS UI4 native video compositor for Alder Lake S.
 //
 // One dispatch rebuilds the primary back buffer from the immutable XRGB base
-// and one decoder-owned Y-tiled NV12 picture.  There is deliberately no
+// and one decoder-owned Tile64 NV12 picture.  There is deliberately no
 // intermediate RGBA surface, scaling, filtering, alpha path, or descriptor
 // worklist in this contract.
 
-inline uint ui4_ytile_8bpp_offset(uint byte_x, uint row_y, uint tiles_per_row)
+// Xe media Tile64, 8bpp. This is the exact swizzle used by
+// AvcSurfaceLayout::nv12_tile64; it is not the older 128x32 Y-tile layout.
+inline uint ui4_tile64_8bpp_offset(uint byte_x, uint row_y, uint tiles_per_row)
 {
-    uint tile_col = byte_x >> 7;
-    uint tile_row = row_y >> 5;
-    uint in_x = byte_x & 127u;
-    uint in_y = row_y & 31u;
-    uint within_tile = (in_x >> 4) * 512u + in_y * 16u + (in_x & 15u);
-    return (tile_row * tiles_per_row + tile_col) * 4096u + within_tile;
+    uint tile_col = byte_x >> 8;
+    uint tile_row = row_y >> 8;
+    uint u = byte_x & 255u;
+    uint v = row_y & 255u;
+    uint within_tile = ((u & 0x0fu) << 0)
+        | ((v & 0x03u) << 4)
+        | (((u >> 4) & 0x03u) << 6)
+        | (((v >> 2) & 0x01u) << 8)
+        | (((u >> 6) & 0x01u) << 9)
+        | (((v >> 3) & 0x03u) << 10)
+        | (((u >> 7) & 0x01u) << 12)
+        | (((v >> 5) & 0x07u) << 13);
+    return (tile_row * tiles_per_row + tile_col) * 65536u + within_tile;
 }
 
 inline uint ui4_clamped_bt601_channel(int value)
@@ -56,11 +65,11 @@ __kernel void ui4_nv12_ytile_to_primary_xrgb(
 
     uint sample_x = source_x + inside_x;
     uint sample_y = source_y + inside_y;
-    uint tiles_per_row = src_pitch_bytes >> 7;
+    uint tiles_per_row = src_pitch_bytes >> 8;
     uint chroma_row = src_uv_offset / src_pitch_bytes;
-    uint y_offset = ui4_ytile_8bpp_offset(sample_x, sample_y, tiles_per_row);
+    uint y_offset = ui4_tile64_8bpp_offset(sample_x, sample_y, tiles_per_row);
     uint uv_x = sample_x & ~1u;
-    uint uv_offset = ui4_ytile_8bpp_offset(
+    uint uv_offset = ui4_tile64_8bpp_offset(
         uv_x,
         chroma_row + (sample_y >> 1),
         tiles_per_row);
