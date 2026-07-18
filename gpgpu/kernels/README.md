@@ -125,7 +125,7 @@ build. Its SHA-256 is:
 quad worklist build. Its SHA-256 is:
 
 ```text
-0d2328a448a21b7392430fa5a535d57e0a94cd4931f58bafbb0fcc9ebf7f8121
+8dfc6217ff6346fe2660079fc905ed5e48187af48b0c90c5e0d5e56a80ef3437
 ```
 
 `artifacts/adls/mandel64_worklist_rgba8.bin` is the descriptor Mandelbrot

@@ -8,8 +8,9 @@
 //   define the UV basis, all four corners define the clipped bounds, UV sampling
 //   is nearest with clamp-to-edge, and output is straight source-over.
 // - One ordered walker consumes one descriptor. Its SIMD16 groups cover the
-//   two-dimensional destination, so fullscreen composition scales across the
-//   GPU instead of making sixteen lanes serially walk every pixel.
+//   two-dimensional destination with one work item per pixel. Do not batch
+//   rows inside a lane: long per-lane row loops produced partially visible
+//   horizontal strips when the result became display scanout immediately.
 
 #define SPRITE_QUAD_DESC_DWORDS 18u
 #define SPRITE_QUAD_FLAG_SRC_OVER (1u << 0)
@@ -17,7 +18,7 @@
 #define SPRITE_QUAD_FLAG_CLEAR (1u << 2)
 #define SPRITE_QUAD_FLAG_SOURCE_XRGB (1u << 3)
 #define SPRITE_QUAD_FLAG_DEST_XRGB (1u << 4)
-#define SPRITE_QUAD_TILE_ROWS 64u
+#define SPRITE_QUAD_TILE_ROWS 1u
 
 static inline uint div255(uint value)
 {
