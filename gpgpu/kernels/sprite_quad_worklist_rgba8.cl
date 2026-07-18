@@ -7,9 +7,9 @@
 // - The rasterizer matches the CPU fallback's parallelogram path: c0/c1/c3
 //   define the UV basis, all four corners define the clipped bounds, UV sampling
 //   is nearest with clamp-to-edge, and output is straight source-over.
-// - Each SIMD16 workgroup consumes one descriptor. Lanes cooperate on that
-//   descriptor's pixels, which keeps large quads parallel without forcing
-//   the whole source run through one serial descriptor loop.
+// - One ordered walker consumes one descriptor. Its SIMD16 groups cover the
+//   two-dimensional destination, so fullscreen composition scales across the
+//   GPU instead of making sixteen lanes serially walk every pixel.
 
 #define SPRITE_QUAD_DESC_DWORDS 18u
 #define SPRITE_QUAD_FLAG_SRC_OVER (1u << 0)
@@ -17,6 +17,7 @@
 #define SPRITE_QUAD_FLAG_CLEAR (1u << 2)
 #define SPRITE_QUAD_FLAG_SOURCE_XRGB (1u << 3)
 #define SPRITE_QUAD_FLAG_DEST_XRGB (1u << 4)
+#define SPRITE_QUAD_TILE_ROWS 64u
 
 static inline uint div255(uint value)
 {
@@ -137,12 +138,9 @@ __kernel void sprite_quad_worklist_rgba8(
     uint desc_base,
     uint desc_count)
 {
-    uint lane = get_local_id(0);
-    uint local_desc_id = get_group_id(0);
-    if (lane >= 16u) {
-        return;
-    }
-    if (local_desc_id >= desc_count) {
+    uint x = get_global_id(0);
+    uint tile_y = get_global_id(1) * SPRITE_QUAD_TILE_ROWS;
+    if (desc_count == 0u || x >= dst_width || tile_y >= dst_height) {
         return;
     }
 
@@ -151,7 +149,7 @@ __kernel void sprite_quad_worklist_rgba8(
     int max_dst_x = (int)max(dst_width, 1u) - 1;
     int max_dst_y = (int)max(dst_height, 1u) - 1;
 
-    uint desc_index = (desc_base + local_desc_id) * SPRITE_QUAD_DESC_DWORDS;
+    uint desc_index = desc_base * SPRITE_QUAD_DESC_DWORDS;
     float c0x = as_float(descs[desc_index + 0u]);
     float c0y = as_float(descs[desc_index + 1u]);
     float c0u = as_float(descs[desc_index + 2u]);
@@ -186,52 +184,62 @@ __kernel void sprite_quad_worklist_rgba8(
         return;
     }
 
-    uint bbox_w = (uint)(max_x - min_x + 1);
-    uint bbox_h = (uint)(max_y - min_y + 1);
-    uint pixel_count = bbox_w * bbox_h;
-    for (uint pixel_id = lane; pixel_id < pixel_count; pixel_id += 16u) {
-        int x = min_x + (int)(pixel_id % bbox_w);
-        int y = min_y + (int)(pixel_id / bbox_w);
-        float dx = (float)x + 0.5f - c0x;
+    if ((int)x < min_x || (int)x > max_x) {
+        return;
+    }
+
+    float dx = (float)x + 0.5f - c0x;
+    __attribute__((opencl_unroll_hint(1)))
+    for (uint row = 0u; row < SPRITE_QUAD_TILE_ROWS; ++row) {
+        uint y = tile_y + row;
+        if (y >= dst_height) {
+            break;
+        }
+        if ((int)y < min_y || (int)y > max_y) {
+            continue;
+        }
+
         float dy = (float)y + 0.5f - c0y;
         float s = (dx * eyy - dy * eyx) / det;
         float t = (exx * dy - exy * dx) / det;
-        if (s >= -0.0001f && s <= 1.0001f && t >= -0.0001f && t <= 1.0001f) {
-            uint dst_index = (uint)y * dst_pitch_pixels + (uint)x;
-            if ((flags & SPRITE_QUAD_FLAG_CLEAR) != 0u) {
-                dst_rgba[dst_index] = 0u;
-                continue;
-            }
-            float u = c0u + (c1u - c0u) * s + (c3u - c0u) * t;
-            float v = c0v + (c1v - c0v) * s + (c3v - c0v) * t;
-            uint sampled = sample_rgba(
-                src_rgba,
-                src_pitch_pixels,
-                src_width,
-                src_height,
-                u,
-                v);
-            if ((flags & SPRITE_QUAD_FLAG_SOURCE_XRGB) != 0u) {
-                sampled = xrgb_to_rgba(sampled);
-            }
-            uint src = modulate(sampled, color_rgba);
-            uint dst = dst_rgba[dst_index];
-            if ((flags & SPRITE_QUAD_FLAG_DEST_XRGB) != 0u) {
-                dst = xrgb_to_rgba(dst);
-            }
-            uint out;
-            if ((flags & SPRITE_QUAD_FLAG_SRC_OVER) != 0u) {
-                out = src_over(
-                    src,
-                    dst,
-                    flags & SPRITE_QUAD_FLAG_PREMUL_SRC);
-            } else {
-                out = src;
-            }
-            if ((flags & SPRITE_QUAD_FLAG_DEST_XRGB) != 0u) {
-                out = rgba_to_xrgb(out);
-            }
-            dst_rgba[dst_index] = out;
+        if (s < -0.0001f || s > 1.0001f || t < -0.0001f || t > 1.0001f) {
+            continue;
         }
+
+        uint dst_index = y * dst_pitch_pixels + x;
+        if ((flags & SPRITE_QUAD_FLAG_CLEAR) != 0u) {
+            dst_rgba[dst_index] = 0u;
+            continue;
+        }
+        float u = c0u + (c1u - c0u) * s + (c3u - c0u) * t;
+        float v = c0v + (c1v - c0v) * s + (c3v - c0v) * t;
+        uint sampled = sample_rgba(
+            src_rgba,
+            src_pitch_pixels,
+            src_width,
+            src_height,
+            u,
+            v);
+        if ((flags & SPRITE_QUAD_FLAG_SOURCE_XRGB) != 0u) {
+            sampled = xrgb_to_rgba(sampled);
+        }
+        uint src = modulate(sampled, color_rgba);
+        uint dst = dst_rgba[dst_index];
+        if ((flags & SPRITE_QUAD_FLAG_DEST_XRGB) != 0u) {
+            dst = xrgb_to_rgba(dst);
+        }
+        uint out;
+        if ((flags & SPRITE_QUAD_FLAG_SRC_OVER) != 0u) {
+            out = src_over(
+                src,
+                dst,
+                flags & SPRITE_QUAD_FLAG_PREMUL_SRC);
+        } else {
+            out = src;
+        }
+        if ((flags & SPRITE_QUAD_FLAG_DEST_XRGB) != 0u) {
+            out = rgba_to_xrgb(out);
+        }
+        dst_rgba[dst_index] = out;
     }
 }
