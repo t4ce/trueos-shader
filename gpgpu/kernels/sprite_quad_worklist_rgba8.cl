@@ -14,6 +14,9 @@
 #define SPRITE_QUAD_DESC_DWORDS 18u
 #define SPRITE_QUAD_FLAG_SRC_OVER (1u << 0)
 #define SPRITE_QUAD_FLAG_PREMUL_SRC (1u << 1)
+#define SPRITE_QUAD_FLAG_CLEAR (1u << 2)
+#define SPRITE_QUAD_FLAG_SOURCE_XRGB (1u << 3)
+#define SPRITE_QUAD_FLAG_DEST_XRGB (1u << 4)
 
 static inline uint div255(uint value)
 {
@@ -81,6 +84,21 @@ static inline uint src_over(uint src, uint dst, uint premultiplied)
     uint out_a = sa + div255(da * inv);
 
     return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
+}
+
+static inline uint xrgb_to_rgba(uint xrgb)
+{
+    return 0xFF000000u
+        | ((xrgb >> 16) & 0xFFu)
+        | (xrgb & 0x0000FF00u)
+        | ((xrgb & 0xFFu) << 16);
+}
+
+static inline uint rgba_to_xrgb(uint rgba)
+{
+    return ((rgba & 0xFFu) << 16)
+        | (rgba & 0x0000FF00u)
+        | ((rgba >> 16) & 0xFFu);
 }
 
 static inline int clamp_i32(int value, int lo, int hi)
@@ -179,25 +197,41 @@ __kernel void sprite_quad_worklist_rgba8(
         float s = (dx * eyy - dy * eyx) / det;
         float t = (exx * dy - exy * dx) / det;
         if (s >= -0.0001f && s <= 1.0001f && t >= -0.0001f && t <= 1.0001f) {
+            uint dst_index = (uint)y * dst_pitch_pixels + (uint)x;
+            if ((flags & SPRITE_QUAD_FLAG_CLEAR) != 0u) {
+                dst_rgba[dst_index] = 0u;
+                continue;
+            }
             float u = c0u + (c1u - c0u) * s + (c3u - c0u) * t;
             float v = c0v + (c1v - c0v) * s + (c3v - c0v) * t;
-            uint src = modulate(sample_rgba(
+            uint sampled = sample_rgba(
                 src_rgba,
                 src_pitch_pixels,
                 src_width,
                 src_height,
                 u,
-                v),
-                color_rgba);
-            uint dst_index = (uint)y * dst_pitch_pixels + (uint)x;
+                v);
+            if ((flags & SPRITE_QUAD_FLAG_SOURCE_XRGB) != 0u) {
+                sampled = xrgb_to_rgba(sampled);
+            }
+            uint src = modulate(sampled, color_rgba);
+            uint dst = dst_rgba[dst_index];
+            if ((flags & SPRITE_QUAD_FLAG_DEST_XRGB) != 0u) {
+                dst = xrgb_to_rgba(dst);
+            }
+            uint out;
             if ((flags & SPRITE_QUAD_FLAG_SRC_OVER) != 0u) {
-                dst_rgba[dst_index] = src_over(
+                out = src_over(
                     src,
-                    dst_rgba[dst_index],
+                    dst,
                     flags & SPRITE_QUAD_FLAG_PREMUL_SRC);
             } else {
-                dst_rgba[dst_index] = src;
+                out = src;
             }
+            if ((flags & SPRITE_QUAD_FLAG_DEST_XRGB) != 0u) {
+                out = rgba_to_xrgb(out);
+            }
+            dst_rgba[dst_index] = out;
         }
     }
 }

@@ -28,7 +28,7 @@ The next embedded API seed artifacts are compiled for focused UI/GPGPU bring-up:
 - `present_rgba8_to_primary_xrgb_rect.cl`: RGBA8 scene rect to primary XRGB rect with optional source Y flip
 - `stamp_mandel_rgba8.cl`: ten-iteration Mandelbrot stamp using destination x/y as both stamp origin and view offset
 - `sprite64_worklist_rgba8.cl`: fixed 64x64 sprite descriptors copied/blended from atlas to destination; shell path batches descriptor slices as multiple walkers in one command buffer
-- `sprite_quad_worklist_rgba8.cl`: arbitrary sprite-quad descriptors sampled from RGBA8 source surfaces and source-over blended into RGBA8 destinations
+- `sprite_quad_worklist_rgba8.cl`: arbitrary sprite-quad descriptors sampled from RGBA8 or XRGB source surfaces and copied or source-over blended into RGBA8/XRGB destinations
 - `mandel64_worklist_rgba8.cl`: clipped 64x4 Mandelbrot row-band descriptors; each descriptor can either mirror across the real axis or compute an unmirrored viewport
 - `chart_sine_rgba8.cl`: full-frame analytical 2D scope plot with grid, axes, border, anti-aliased sine line, and optional glow; available as the `gpgpu preview start chart` arbitrary-surface UI4 compute node
 - `pixel_plasma_rgba8.cl`: full-frame procedural scalar-field pixel kernel with a FluidX3D-inspired scientific palette, vignette, radial interference, and scanlines; available as the `gpgpu preview start plasma` arbitrary-surface UI4 compute node
@@ -64,7 +64,7 @@ The rect worklist evo kernels share a descriptor-driven shape with the
 - `fill_rect_worklist_rgba8.cl` descriptors are `{ dst_xy, size, color_rgba }`
 - `gradient_rect_worklist_rgba8.cl` descriptors are `{ dst_xy, size, color0_rgba, color1_rgba, flags }`, with `flags bit0` selecting vertical instead of horizontal
 - `alpha_blend_worklist_rgba8.cl` descriptors are `{ src_xy, dst_xy, size, flags, color_rgba }`, with flags for direct copy, source-over, RGB tint, alpha tint, and premultiplied source
-- `sprite_quad_worklist_rgba8.cl` descriptors are four `x/y/u/v` float corners plus `{ color_rgba, flags }`; flags select source-over and premultiplied source RGB
+- `sprite_quad_worklist_rgba8.cl` descriptors are four `x/y/u/v` float corners plus `{ color_rgba, flags }`; flags select clear, source-over, premultiplied source RGB, and XRGB source/destination conversion
 - packed coordinates use 16-bit lanes; destination coordinates are signed
 
 These are intended to replace the old single-rect stage-1 fill/alpha path for
@@ -125,7 +125,7 @@ build. Its SHA-256 is:
 quad worklist build. Its SHA-256 is:
 
 ```text
-de7bae1e85c04fee36a9e5a137fe3f75c24ddb70778d9831d00d4a3c1975c4a2
+0d2328a448a21b7392430fa5a535d57e0a94cd4931f58bafbb0fcc9ebf7f8121
 ```
 
 `artifacts/adls/mandel64_worklist_rgba8.bin` is the descriptor Mandelbrot
