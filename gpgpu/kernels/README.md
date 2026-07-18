@@ -33,6 +33,7 @@ The next embedded API seed artifacts are compiled for focused UI/GPGPU bring-up:
 - `chart_sine_rgba8.cl`: full-frame analytical 2D scope plot with grid, axes, border, anti-aliased sine line, and optional glow; available as the `gpgpu preview start chart` arbitrary-surface UI4 compute node
 - `pixel_plasma_rgba8.cl`: full-frame procedural scalar-field pixel kernel with a FluidX3D-inspired scientific palette, vignette, radial interference, and scanlines; available as the `gpgpu preview start plasma` arbitrary-surface UI4 compute node
 - `font_outline_mesh.cl`: allowlisted Skrifa outline consumer used by `gpgpu probe font-tessel`; it audits the packed command stream, flattens quadratic/cubic curves, and emits indexed contour-stroke triangles without CPU geometry math
+- `font_outline_coverage_r8.cl`: production small-font Skrifa-afterpath consumer; it evaluates non-zero winding plus nearest-edge distance in final mask-pixel coordinates and writes reusable fractional R8 coverage with bounded optical bias
 - `canvas3d_project_rgba8.cl`: Q16 vec3 projection into packed XY/RGBA point records with source/output ranges and dynamic canvas dimensions
 - `canvas3d_transform_q16.cl`: range/subset Q16 vec3 fused scale, quaternion rotation, and translation from source int4 vertices to destination int4 vertices
 - `canvas3d_clip_box_q16.cl`: idempotent Q16 vec3 source-to-sink box clip for presentation-safe geometry before projection
@@ -177,6 +178,18 @@ tessellation. Runtime overrides must match:
 
 ```text
 bf78e5d6870f2303b707d30320d8daa15554085a75d47a48b51fb932f4fa3d25
+```
+
+`artifacts/adls/font_outline_coverage_r8.bin` is the production analytical
+small-font build used by persisted GridPaper layers. The CPU positions warmed
+Skrifa commands but does not fill-tessellate them. Compute preserves contour
+orientation, applies non-zero winding for holes, locally subdivides quadratic
+and cubic curves, and encodes `clamp(0.5 + bias - signed_distance, 0, 1)` into
+R8. Masks are generated once, then `glyph_mask_rgba8.cl` supplies animated
+color source-over after the scene MSAA resolve. Runtime overrides must match:
+
+```text
+a4f0dddc7f2a9d9d67e5e71459d54da2e4a7ade8cd1af8c27283a884f221b836
 ```
 
 Regenerate one or more ADL-S artifacts with the Intel IGC/`ocloc` toolchain:
